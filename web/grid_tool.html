@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Membery — Grid Calibration Tool</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+  h1 { font-size: 1.4rem; margin-bottom: 8px; }
+
+  #status {
+    background: #16213e; padding: 12px 16px; border-radius: 8px;
+    margin-bottom: 16px; font-size: 1rem; line-height: 1.5;
+  }
+  #status .mode { color: #4fc3f7; font-weight: bold; }
+  #status .hint { color: #aaa; font-size: 0.85rem; }
+
+  #canvas-wrap {
+    position: relative; display: inline-block; cursor: crosshair;
+    border: 2px solid #333; border-radius: 4px; overflow: hidden;
+  }
+  canvas { display: block; }
+
+  #controls {
+    margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  button {
+    background: #0f3460; color: #e0e0e0; border: 1px solid #4fc3f7;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+  }
+  button:hover { background: #1a4a7a; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.active { background: #4fc3f7; color: #1a1a2e; font-weight: bold; }
+
+  #output {
+    margin-top: 16px; background: #0d1117; padding: 16px; border-radius: 8px;
+    font-family: monospace; font-size: 0.85rem; white-space: pre-wrap;
+    display: none; max-height: 300px; overflow-y: auto;
+  }
+
+  .zoom-lens {
+    position: fixed; width: 200px; height: 200px; border: 2px solid #4fc3f7;
+    border-radius: 8px; overflow: hidden; pointer-events: none;
+    display: none; z-index: 100; background: #000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .zoom-lens canvas { width: 200px; height: 200px; }
+</style>
+</head>
+<body>
+
+<h1>Grid Calibration Tool</h1>
+
+<div id="status">
+  <span class="mode" id="mode-label">Loading...</span><br>
+  <span class="hint" id="hint"></span>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div class="zoom-lens" id="zoom-lens">
+  <canvas id="zoom-canvas" width="200" height="200"></canvas>
+</div>
+
+<div id="controls">
+  <button id="btn-vcols" class="active" onclick="setMode('vcols')">Vertical gaps (0/7)</button>
+  <button id="btn-hrows" onclick="setMode('hrows')">Horizontal gaps (0/8)</button>
+  <button id="btn-undo" onclick="undo()">Undo (Z)</button>
+  <button id="btn-export" onclick="exportData()" disabled>Export JSON</button>
+</div>
+
+<div id="output"></div>
+
+<script>
+const SCALE = 4;
+const DISPLAY_W = 730, DISPLAY_H = 835;
+const FULL_W = DISPLAY_W * SCALE, FULL_H = DISPLAY_H * SCALE;
+const SNAP_RADIUS = 15; // in display pixels — search +/- 15px around click
+
+let mode = 'vcols';
+let vGaps = []; // x positions in DISPLAY coords
+let hGaps = []; // y positions in DISPLAY coords
+const NEED_V = 7, NEED_H = 8;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = DISPLAY_W;
+canvas.height = DISPLAY_H;
+
+const zoomLens = document.getElementById('zoom-lens');
+const zoomCanvas = document.getElementById('zoom-canvas');
+const zoomCtx = zoomCanvas.getContext('2d');
+
+// Use only the display image — small enough to read pixels from quickly
+const img = new Image();
+let imgLoaded = false;
+let imgCanvas, imgCtx, imgData;
+
+img.onload = () => {
+  imgLoaded = true;
+
+  // Draw to an offscreen canvas so we can read pixel data
+  imgCanvas = document.createElement('canvas');
+  imgCanvas.width = DISPLAY_W;
+  imgCanvas.height = DISPLAY_H;
+  imgCtx = imgCanvas.getContext('2d', { willReadFrequently: true });
+  imgCtx.drawImage(img, 0, 0, DISPLAY_W, DISPLAY_H);
+  imgData = imgCtx.getImageData(0, 0, DISPLAY_W, DISPLAY_H).data;
+
+  draw();
+  updateStatus();
+};
+img.src = 'rectified_display.jpg';
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-vcols').classList.toggle('active', m === 'vcols');
+  document.getElementById('btn-hrows').classList.toggle('active', m === 'hrows');
+  updateStatus();
+}
+
+function updateStatus() {
+  const modeLabel = document.getElementById('mode-label');
+  const hint = document.getElementById('hint');
+
+  if (!imgLoaded) {
+    modeLabel.textContent = 'Loading image...';
+    hint.textContent = '';
+    return;
+  }
+
+  if (mode === 'vcols') {
+    const remaining = NEED_V - vGaps.length;
+    modeLabel.textContent = remaining > 0
+      ? `Click ${remaining} vertical gap${remaining > 1 ? 's' : ''} between tile columns`
+      : 'All 7 vertical gaps placed! Press H for horizontal gaps.';
+    hint.textContent = 'Click in each gap between columns, left to right. Tool snaps to gap center.';
+  } else {
+    const remaining = NEED_H - hGaps.length;
+    modeLabel.textContent = remaining > 0
+      ? `Click ${remaining} horizontal gap${remaining > 1 ? 's' : ''} between tile rows`
+      : 'All 8 horizontal gaps placed! Hit Export.';
+    hint.textContent = 'Click in each gap between rows, top to bottom. Tool snaps to gap center.';
+  }
+
+  document.getElementById('btn-vcols').textContent = `Vertical gaps (${vGaps.length}/${NEED_V})`;
+  document.getElementById('btn-hrows').textContent = `Horizontal gaps (${hGaps.length}/${NEED_H})`;
+  document.getElementById('btn-export').disabled = !(vGaps.length === NEED_V && hGaps.length === NEED_H);
+
+  draw();
+}
+
+function getDisplayCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: Math.round(e.clientX - rect.left),
+    y: Math.round(e.clientY - rect.top)
+  };
+}
+
+function brightness(x, y) {
+  if (x < 0 || x >= DISPLAY_W || y < 0 || y >= DISPLAY_H) return 255;
+  const idx = (y * DISPLAY_W + x) * 4;
+  return (imgData[idx] + imgData[idx + 1] + imgData[idx + 2]) / 3;
+}
+
+// Snap vertical: find the darkest column (averaged over full height) near the click
+function snapVertical(clickX) {
+  if (!imgData) return clickX;
+  const lo = Math.max(0, clickX - SNAP_RADIUS);
+  const hi = Math.min(DISPLAY_W - 1, clickX + SNAP_RADIUS);
+
+  let bestX = clickX, minAvg = Infinity;
+  for (let x = lo; x <= hi; x++) {
+    let total = 0, count = 0;
+    for (let y = 0; y < DISPLAY_H; y += 3) {
+      total += brightness(x, y);
+      count++;
+    }
+    const avg = total / count;
+    if (avg < minAvg) { minAvg = avg; bestX = x; }
+  }
+  return bestX;
+}
+
+// Snap horizontal: find the darkest row (averaged over full width) near the click
+function snapHorizontal(clickY) {
+  if (!imgData) return clickY;
+  const lo = Math.max(0, clickY - SNAP_RADIUS);
+  const hi = Math.min(DISPLAY_H - 1, clickY + SNAP_RADIUS);
+
+  let bestY = clickY, minAvg = Infinity;
+  for (let y = lo; y <= hi; y++) {
+    let total = 0, count = 0;
+    for (let x = 0; x < DISPLAY_W; x += 3) {
+      total += brightness(x, y);
+      count++;
+    }
+    const avg = total / count;
+    if (avg < minAvg) { minAvg = avg; bestY = y; }
+  }
+  return bestY;
+}
+
+canvas.addEventListener('click', (e) => {
+  if (!imgLoaded) return;
+  const { x, y } = getDisplayCoords(e);
+
+  if (mode === 'vcols' && vGaps.length < NEED_V) {
+    const snapped = snapVertical(x);
+    vGaps.push(snapped);
+    vGaps.sort((a, b) => a - b);
+  } else if (mode === 'hrows' && hGaps.length < NEED_H) {
+    const snapped = snapHorizontal(y);
+    hGaps.push(snapped);
+    hGaps.sort((a, b) => a - b);
+  }
+
+  updateStatus();
+});
+
+// Zoom lens
+canvas.addEventListener('mousemove', (e) => {
+  if (!imgLoaded) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const dx = e.clientX - rect.left;
+  const dy = e.clientY - rect.top;
+
+  zoomLens.style.display = 'block';
+  // Keep lens on screen
+  const lensX = Math.min(e.clientX + 20, window.innerWidth - 220);
+  const lensY = Math.max(e.clientY - 210, 10);
+  zoomLens.style.left = lensX + 'px';
+  zoomLens.style.top = lensY + 'px';
+
+  const zoomFactor = 3;
+  const srcW = 200 / zoomFactor;
+  const srcH = 200 / zoomFactor;
+  zoomCtx.clearRect(0, 0, 200, 200);
+  zoomCtx.imageSmoothingEnabled = false;
+  zoomCtx.drawImage(canvas,
+    dx - srcW / 2, dy - srcH / 2, srcW, srcH,
+    0, 0, 200, 200
+  );
+
+  // Crosshair in zoom lens
+  zoomCtx.strokeStyle = mode === 'vcols' ? '#4fc3f7' : '#ff9800';
+  zoomCtx.lineWidth = 1;
+  zoomCtx.setLineDash([4, 4]);
+  if (mode === 'vcols') {
+    zoomCtx.beginPath(); zoomCtx.moveTo(100, 0); zoomCtx.lineTo(100, 200); zoomCtx.stroke();
+  } else {
+    zoomCtx.beginPath(); zoomCtx.moveTo(0, 100); zoomCtx.lineTo(200, 100); zoomCtx.stroke();
+  }
+  zoomCtx.setLineDash([]);
+});
+
+canvas.addEventListener('mouseleave', () => {
+  zoomLens.style.display = 'none';
+});
+
+function undo() {
+  if (mode === 'vcols' && vGaps.length > 0) vGaps.pop();
+  else if (mode === 'hrows' && hGaps.length > 0) hGaps.pop();
+  updateStatus();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'z' || e.key === 'Z') undo();
+  if (e.key === 'v' || e.key === 'V') setMode('vcols');
+  if (e.key === 'h' || e.key === 'H') setMode('hrows');
+});
+
+function draw() {
+  if (!imgLoaded) return;
+  ctx.drawImage(img, 0, 0, DISPLAY_W, DISPLAY_H);
+
+  ctx.lineWidth = 2;
+
+  // Vertical gaps — blue dashed
+  for (const x of vGaps) {
+    ctx.strokeStyle = '#4fc3f7';
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, DISPLAY_H); ctx.stroke();
+  }
+
+  // Horizontal gaps — orange dashed
+  for (const y of hGaps) {
+    ctx.strokeStyle = '#ff9800';
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(DISPLAY_W, y); ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+
+  // If all gaps placed, show tile crop preview boxes
+  if (vGaps.length === NEED_V && hGaps.length === NEED_H) {
+    const colEdges = [0, ...vGaps, DISPLAY_W];
+    const rowEdges = [0, ...hGaps, DISPLAY_H];
+
+    ctx.strokeStyle = 'rgba(76, 175, 80, 0.7)';
+    ctx.lineWidth = 1.5;
+    for (let r = 0; r < rowEdges.length - 1; r++) {
+      // Left tile of each pair: cols 0,2,4,6
+      for (let c = 0; c < colEdges.length - 1; c += 2) {
+        const x1 = colEdges[c] + 6;
+        const y1 = rowEdges[r] + 6;
+        const x2 = colEdges[c + 1] - 6;
+        const y2 = rowEdges[r + 1] - 6;
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      }
+    }
+  }
+}
+
+function exportData() {
+  if (vGaps.length !== NEED_V || hGaps.length !== NEED_H) return;
+
+  // Convert display coords to full-res
+  const data = {
+    vertical_gaps: vGaps.map(x => x * SCALE),
+    horizontal_gaps: hGaps.map(y => y * SCALE),
+    column_edges: [0, ...vGaps.map(x => x * SCALE), FULL_W],
+    row_edges: [0, ...hGaps.map(y => y * SCALE), FULL_H],
+  };
+
+  const el = document.getElementById('output');
+  el.style.display = 'block';
+  el.textContent = JSON.stringify(data, null, 2);
+
+  navigator.clipboard.writeText(JSON.stringify(data)).then(() => {
+    document.getElementById('mode-label').textContent = 'Copied to clipboard! Paste into the terminal.';
+  }).catch(() => {
+    document.getElementById('mode-label').textContent = 'Copy the JSON below and paste into the terminal.';
+  });
+}
+</script>
+
+</body>
+</html>
