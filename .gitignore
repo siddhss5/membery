@@ -1,0 +1,10 @@
+# Generated tiles
+web/tiles/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
