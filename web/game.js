@@ -12,9 +12,8 @@ const TILE_NAMES = [
   "flag", "rose", "tiger", "stripes",
 ];
 
-// --- State ---
 let cards = [];
-let cardElements = []; // DOM references for each card
+let cardElements = [];
 let flipped = [];
 let matchedCount = 0;
 let totalPairs = 0;
@@ -35,39 +34,32 @@ function shuffle(arr) {
 // --- Build card deck ---
 function buildDeck(numPairs) {
   const selected = shuffle([...TILE_NAMES]).slice(0, numPairs);
-  const deck = selected.flatMap(name => [
+  return shuffle(selected.flatMap(name => [
     { tile: name, matched: false },
     { tile: name, matched: false },
-  ]);
-  return shuffle(deck);
+  ]));
 }
 
-// --- Adaptive grid layout ---
-// Computes columns, rows, and card size to guarantee everything fits
-// the viewport without scrolling, on any device.
+// --- Layout ---
+// Computes columns and card size to guarantee everything fits the
+// viewport without scrolling, on any device or orientation.
 function computeLayout(numCards) {
-  const grid = document.getElementById('grid');
   const header = document.querySelector('header');
-
-  // Available space
+  const bodyStyle = getComputedStyle(document.body);
   const vw = window.innerWidth;
-  const bodyPad = parseFloat(getComputedStyle(document.body).paddingLeft) * 2;
-  const availW = vw - bodyPad;
-  const headerH = header ? header.offsetHeight : 60;
-  const bodyPadV = parseFloat(getComputedStyle(document.body).paddingTop)
-                 + parseFloat(getComputedStyle(document.body).paddingBottom);
-  const headerMargin = 8; // margin-bottom on header
-  const availH = window.innerHeight - headerH - bodyPadV - headerMargin;
+  const vh = window.innerHeight;
 
+  const padH = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
+  const padV = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
+  const headerH = header ? header.offsetHeight + 8 : 0; // 8 = margin-bottom
+
+  const availW = vw - padH;
+  const availH = vh - padV - headerH;
   const gap = vw < 480 ? 2 : 3;
+
+  // Pick columns: fewer on narrow screens for larger cards
   const narrow = vw < 600;
-
-  // Pick columns
-  let cols;
-  if (numCards <= 24) cols = narrow ? 4 : 6;
-  else if (numCards <= 36) cols = narrow ? 4 : 6;
-  else cols = narrow ? 6 : 8;
-
+  const cols = numCards <= 36 ? (narrow ? 4 : 6) : (narrow ? 6 : 8);
   const rows = Math.ceil(numCards / cols);
 
   // Largest square card that fits both dimensions
@@ -75,14 +67,24 @@ function computeLayout(numCards) {
   const maxByHeight = (availH - gap * (rows - 1)) / rows;
   const cardSize = Math.floor(Math.min(maxByWidth, maxByHeight));
 
-  return { cols, rows, cardSize, gap };
+  return { cols, cardSize, gap };
+}
+
+function applyLayout() {
+  if (cards.length === 0) return;
+  const grid = document.getElementById('grid');
+  const { cols, cardSize, gap } = computeLayout(cards.length);
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cardSize}px)`;
+  grid.style.gridAutoRows = `${cardSize}px`;
+  grid.style.gap = `${gap}px`;
 }
 
 // --- Timer ---
 function startTimer() {
   if (timerStart) return;
   timerStart = Date.now();
-  timerInterval = setInterval(updateTimerDisplay, 100);
+  timerInterval = setInterval(updateTimerDisplay, 1000);
+  updateTimerDisplay();
 }
 
 function stopTimer() {
@@ -95,29 +97,19 @@ function resetTimer() {
   updateTimerDisplay();
 }
 
-function elapsed() {
-  if (!timerStart) return 0;
-  return (Date.now() - timerStart) / 1000;
-}
-
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
 function updateTimerDisplay() {
   const el = document.getElementById('timer');
-  if (el) el.textContent = formatTime(elapsed());
+  if (el) el.textContent = formatTime(timerStart ? Date.now() - timerStart : 0);
 }
 
-// --- Build grid (DOM creation, done once per new game) ---
+// --- Grid ---
 function buildGrid() {
   const grid = document.getElementById('grid');
-  const { cols, cardSize, gap } = computeLayout(cards.length);
-  grid.style.gridTemplateColumns = `repeat(${cols}, ${cardSize}px)`;
-  grid.style.gridAutoRows = `${cardSize}px`;
-  grid.style.gap = `${gap}px`;
   grid.innerHTML = '';
   cardElements = [];
 
@@ -137,10 +129,10 @@ function buildGrid() {
     cardElements.push(el);
   });
 
+  applyLayout();
   updateStats();
 }
 
-// --- Update card classes (no DOM rebuild) ---
 function updateCards() {
   cards.forEach((card, idx) => {
     const el = cardElements[idx];
@@ -155,11 +147,9 @@ function updateStats() {
   document.getElementById('moves').textContent = moves;
 }
 
-// --- Click handler ---
+// --- Game logic ---
 function onCardClick(idx) {
-  if (locked) return;
-  if (flipped.includes(idx)) return;
-  if (cards[idx].matched) return;
+  if (locked || flipped.includes(idx) || cards[idx].matched) return;
 
   startTimer();
   flipped.push(idx);
@@ -180,7 +170,6 @@ function checkMatch() {
     matchedCount++;
     flipped = [];
     updateCards();
-
     if (matchedCount === totalPairs) {
       stopTimer();
       showWin();
@@ -197,19 +186,15 @@ function checkMatch() {
 
 // --- Win screen ---
 function showWin() {
-  const overlay = document.getElementById('win-overlay');
   document.getElementById('win-moves').textContent = moves;
-  document.getElementById('win-time').textContent = formatTime(elapsed());
-  overlay.classList.add('visible');
-}
-
-function hideWin() {
-  document.getElementById('win-overlay').classList.remove('visible');
+  document.getElementById('win-time').textContent =
+    formatTime(timerStart ? Date.now() - timerStart : 0);
+  document.getElementById('win-overlay').classList.add('visible');
 }
 
 // --- New game ---
 function newGame(numPairs) {
-  hideWin();
+  document.getElementById('win-overlay').classList.remove('visible');
   totalPairs = numPairs || totalPairs || 18;
   cards = buildDeck(totalPairs);
   flipped = [];
@@ -220,7 +205,6 @@ function newGame(numPairs) {
   buildGrid();
 }
 
-// --- Difficulty selector ---
 function setDifficulty(numPairs) {
   document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.classList.toggle('active', parseInt(btn.dataset.pairs) === numPairs);
@@ -228,26 +212,13 @@ function setDifficulty(numPairs) {
   newGame(numPairs);
 }
 
-// --- Resize handler (re-layout on orientation change etc.) ---
-function onResize() {
-  if (cards.length === 0) return;
-  const grid = document.getElementById('grid');
-  const { cols, cardSize, gap } = computeLayout(cards.length);
-  grid.style.gridTemplateColumns = `repeat(${cols}, ${cardSize}px)`;
-  grid.style.gridAutoRows = `${cardSize}px`;
-  grid.style.gap = `${gap}px`;
-}
-
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.diff-btn').forEach(btn => {
-    btn.addEventListener('click', () => setDifficulty(parseInt(btn.dataset.pairs)));
-  });
-
+  document.querySelectorAll('.diff-btn').forEach(btn =>
+    btn.addEventListener('click', () => setDifficulty(parseInt(btn.dataset.pairs)))
+  );
   document.getElementById('new-game-btn').addEventListener('click', () => newGame());
   document.getElementById('win-new-game').addEventListener('click', () => newGame());
-
-  window.addEventListener('resize', onResize);
-
+  window.addEventListener('resize', applyLayout);
   setDifficulty(18);
 });
