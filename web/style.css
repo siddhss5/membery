@@ -27,7 +27,6 @@ body {
 header {
   flex-shrink: 0;
   width: 100%;
-  max-width: 800px;
   margin: 0 auto 8px;
 }
 
@@ -113,7 +112,6 @@ h1 {
 #grid {
   display: grid;
   width: fit-content;
-  max-width: 800px;
   margin: 0 auto;
   flex: 1;
   align-content: center;

@@ -52,7 +52,7 @@ function computeLayout(numCards) {
   // Available space
   const vw = window.innerWidth;
   const bodyPad = parseFloat(getComputedStyle(document.body).paddingLeft) * 2;
-  const availW = Math.min(vw - bodyPad, 800); // max-width: 800px
+  const availW = vw - bodyPad;
   const headerH = header ? header.offsetHeight : 60;
   const bodyPadV = parseFloat(getComputedStyle(document.body).paddingTop)
                  + parseFloat(getComputedStyle(document.body).paddingBottom);
