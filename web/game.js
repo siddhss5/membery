@@ -212,13 +212,34 @@ function setDifficulty(numPairs) {
   newGame(numPairs);
 }
 
+// --- Splash screen ---
+function showSplash() {
+  document.getElementById('splash').classList.remove('hidden');
+  document.querySelector('header').classList.add('hidden');
+  document.getElementById('grid').classList.add('hidden');
+}
+
+function hideSplash() {
+  document.getElementById('splash').classList.add('hidden');
+  document.querySelector('header').classList.remove('hidden');
+  document.getElementById('grid').classList.remove('hidden');
+}
+
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
+  // Start on splash
+  document.querySelector('header').classList.add('hidden');
+  document.getElementById('grid').classList.add('hidden');
+
+  document.getElementById('play-btn').addEventListener('click', () => {
+    hideSplash();
+    setDifficulty(18);
+  });
+
   document.querySelectorAll('.diff-btn').forEach(btn =>
     btn.addEventListener('click', () => setDifficulty(parseInt(btn.dataset.pairs)))
   );
   document.getElementById('new-game-btn').addEventListener('click', () => newGame());
   document.getElementById('win-new-game').addEventListener('click', () => newGame());
   window.addEventListener('resize', applyLayout);
-  setDifficulty(18);
 });
