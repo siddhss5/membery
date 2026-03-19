@@ -14,13 +14,14 @@ const TILE_NAMES = [
 
 // --- State ---
 let cards = [];
-let flipped = [];       // indices of currently face-up cards (max 2)
+let cardElements = []; // DOM references for each card
+let flipped = [];
 let matchedCount = 0;
 let totalPairs = 0;
 let moves = 0;
 let timerStart = null;
 let timerInterval = null;
-let locked = false;      // block clicks while checking a pair
+let locked = false;
 
 // --- Shuffle (Fisher-Yates) ---
 function shuffle(arr) {
@@ -34,19 +35,19 @@ function shuffle(arr) {
 // --- Build card deck ---
 function buildDeck(numPairs) {
   const selected = shuffle([...TILE_NAMES]).slice(0, numPairs);
-  // Each tile appears twice
   const deck = selected.flatMap(name => [
-    { tile: name, matched: false, id: crypto.randomUUID() },
-    { tile: name, matched: false, id: crypto.randomUUID() },
+    { tile: name, matched: false },
+    { tile: name, matched: false },
   ]);
   return shuffle(deck);
 }
 
-// --- Grid layout ---
+// --- Adaptive grid columns ---
 function gridColumns(numCards) {
-  if (numCards <= 24) return 6;  // 12 pairs = 24 cards -> 6x4
-  if (numCards <= 36) return 6;  // 18 pairs = 36 cards -> 6x6
-  return 8;                      // 36 pairs = 72 cards -> 8x9
+  const narrow = window.innerWidth < 600;
+  if (numCards <= 24) return narrow ? 4 : 6;
+  if (numCards <= 36) return narrow ? 4 : 6;
+  return narrow ? 6 : 8;
 }
 
 // --- Timer ---
@@ -82,19 +83,18 @@ function updateTimerDisplay() {
   if (el) el.textContent = formatTime(elapsed());
 }
 
-// --- Render ---
-function render() {
+// --- Build grid (DOM creation, done once per new game) ---
+function buildGrid() {
   const grid = document.getElementById('grid');
-  grid.style.gridTemplateColumns = `repeat(${gridColumns(cards.length)}, 1fr)`;
+  const cols = gridColumns(cards.length);
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   grid.innerHTML = '';
+  cardElements = [];
 
   cards.forEach((card, idx) => {
-    const cardEl = document.createElement('div');
-    cardEl.className = 'card';
-    if (card.matched) cardEl.classList.add('matched');
-    if (flipped.includes(idx)) cardEl.classList.add('flipped');
-
-    cardEl.innerHTML = `
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
       <div class="card-inner">
         <div class="card-front"></div>
         <div class="card-back">
@@ -102,11 +102,26 @@ function render() {
         </div>
       </div>
     `;
-
-    cardEl.addEventListener('click', () => onCardClick(idx));
-    grid.appendChild(cardEl);
+    el.addEventListener('click', () => onCardClick(idx));
+    grid.appendChild(el);
+    cardElements.push(el);
   });
 
+  updateStats();
+}
+
+// --- Update card classes (no DOM rebuild) ---
+function updateCards() {
+  cards.forEach((card, idx) => {
+    const el = cardElements[idx];
+    if (!el) return;
+    el.classList.toggle('flipped', flipped.includes(idx));
+    el.classList.toggle('matched', card.matched);
+  });
+  updateStats();
+}
+
+function updateStats() {
   document.getElementById('moves').textContent = moves;
 }
 
@@ -116,15 +131,13 @@ function onCardClick(idx) {
   if (flipped.includes(idx)) return;
   if (cards[idx].matched) return;
 
-  // Start timer on first flip
   startTimer();
-
   flipped.push(idx);
-  render();
+  updateCards();
 
   if (flipped.length === 2) {
     moves++;
-    document.getElementById('moves').textContent = moves;
+    updateStats();
     checkMatch();
   }
 }
@@ -132,24 +145,22 @@ function onCardClick(idx) {
 function checkMatch() {
   const [a, b] = flipped;
   if (cards[a].tile === cards[b].tile) {
-    // Match!
     cards[a].matched = true;
     cards[b].matched = true;
     matchedCount++;
     flipped = [];
-    render();
+    updateCards();
 
     if (matchedCount === totalPairs) {
       stopTimer();
       showWin();
     }
   } else {
-    // No match — flip back after delay
     locked = true;
     setTimeout(() => {
       flipped = [];
       locked = false;
-      render();
+      updateCards();
     }, 900);
   }
 }
@@ -176,7 +187,7 @@ function newGame(numPairs) {
   moves = 0;
   locked = false;
   resetTimer();
-  render();
+  buildGrid();
 }
 
 // --- Difficulty selector ---
@@ -187,6 +198,13 @@ function setDifficulty(numPairs) {
   newGame(numPairs);
 }
 
+// --- Resize handler (re-layout grid columns) ---
+function onResize() {
+  if (cards.length === 0) return;
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${gridColumns(cards.length)}, 1fr)`;
+}
+
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.diff-btn').forEach(btn => {
@@ -195,6 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('new-game-btn').addEventListener('click', () => newGame());
   document.getElementById('win-new-game').addEventListener('click', () => newGame());
+
+  window.addEventListener('resize', onResize);
 
   setDifficulty(18);
 });
