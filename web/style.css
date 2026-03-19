@@ -112,17 +112,16 @@ h1 {
 /* --- Card grid --- */
 #grid {
   display: grid;
-  gap: 3px;
-  width: 100%;
+  width: fit-content;
   max-width: 800px;
   margin: 0 auto;
   flex: 1;
   align-content: center;
+  justify-content: center;
 }
 
 /* --- Card --- */
 .card {
-  aspect-ratio: 1;
   perspective: 600px;
   cursor: pointer;
   touch-action: manipulation;
@@ -278,7 +277,6 @@ h1 {
   body { padding: env(safe-area-inset-top, 4px) 4px env(safe-area-inset-bottom, 4px); }
   h1 { font-size: 1.1rem; }
   .stats { font-size: 0.8rem; }
-  #grid { gap: 2px; }
   .card-front::after { font-size: 1rem; }
   .card-front { border-width: 2px; }
   .diff-btn, #new-game-btn { padding: 4px 10px; font-size: 0.75rem; min-height: 32px; }
@@ -292,6 +290,5 @@ h1 {
   h1 { font-size: 1rem; }
   .controls { gap: 4px; }
   .diff-btn, #new-game-btn { padding: 2px 8px; font-size: 0.7rem; min-height: 28px; }
-  #grid { gap: 2px; }
   .card-front { border-width: 1px; }
 }

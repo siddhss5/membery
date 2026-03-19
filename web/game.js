@@ -42,12 +42,40 @@ function buildDeck(numPairs) {
   return shuffle(deck);
 }
 
-// --- Adaptive grid columns ---
-function gridColumns(numCards) {
-  const narrow = window.innerWidth < 600;
-  if (numCards <= 24) return narrow ? 4 : 6;
-  if (numCards <= 36) return narrow ? 4 : 6;
-  return narrow ? 6 : 8;
+// --- Adaptive grid layout ---
+// Computes columns, rows, and card size to guarantee everything fits
+// the viewport without scrolling, on any device.
+function computeLayout(numCards) {
+  const grid = document.getElementById('grid');
+  const header = document.querySelector('header');
+
+  // Available space
+  const vw = window.innerWidth;
+  const bodyPad = parseFloat(getComputedStyle(document.body).paddingLeft) * 2;
+  const availW = Math.min(vw - bodyPad, 800); // max-width: 800px
+  const headerH = header ? header.offsetHeight : 60;
+  const bodyPadV = parseFloat(getComputedStyle(document.body).paddingTop)
+                 + parseFloat(getComputedStyle(document.body).paddingBottom);
+  const headerMargin = 8; // margin-bottom on header
+  const availH = window.innerHeight - headerH - bodyPadV - headerMargin;
+
+  const gap = vw < 480 ? 2 : 3;
+  const narrow = vw < 600;
+
+  // Pick columns
+  let cols;
+  if (numCards <= 24) cols = narrow ? 4 : 6;
+  else if (numCards <= 36) cols = narrow ? 4 : 6;
+  else cols = narrow ? 6 : 8;
+
+  const rows = Math.ceil(numCards / cols);
+
+  // Largest square card that fits both dimensions
+  const maxByWidth = (availW - gap * (cols - 1)) / cols;
+  const maxByHeight = (availH - gap * (rows - 1)) / rows;
+  const cardSize = Math.floor(Math.min(maxByWidth, maxByHeight));
+
+  return { cols, rows, cardSize, gap };
 }
 
 // --- Timer ---
@@ -86,8 +114,10 @@ function updateTimerDisplay() {
 // --- Build grid (DOM creation, done once per new game) ---
 function buildGrid() {
   const grid = document.getElementById('grid');
-  const cols = gridColumns(cards.length);
-  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  const { cols, cardSize, gap } = computeLayout(cards.length);
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cardSize}px)`;
+  grid.style.gridAutoRows = `${cardSize}px`;
+  grid.style.gap = `${gap}px`;
   grid.innerHTML = '';
   cardElements = [];
 
@@ -198,11 +228,14 @@ function setDifficulty(numPairs) {
   newGame(numPairs);
 }
 
-// --- Resize handler (re-layout grid columns) ---
+// --- Resize handler (re-layout on orientation change etc.) ---
 function onResize() {
   if (cards.length === 0) return;
   const grid = document.getElementById('grid');
-  grid.style.gridTemplateColumns = `repeat(${gridColumns(cards.length)}, 1fr)`;
+  const { cols, cardSize, gap } = computeLayout(cards.length);
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cardSize}px)`;
+  grid.style.gridAutoRows = `${cardSize}px`;
+  grid.style.gap = `${gap}px`;
 }
 
 // --- Init ---
