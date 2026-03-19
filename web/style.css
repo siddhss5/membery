@@ -112,7 +112,7 @@ h1 {
 /* --- Card grid --- */
 #grid {
   display: grid;
-  gap: 6px;
+  gap: 3px;
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -185,11 +185,11 @@ h1 {
 .card-back {
   transform: rotateY(180deg);
   background: #f5f0eb;
-  border: 3px solid #d4c4b0;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6%;
+  padding: 0;
 }
 
 .card-back img {
@@ -207,8 +207,7 @@ h1 {
 }
 
 .card.matched .card-back {
-  border-color: #4a9b6a;
-  box-shadow: 0 0 12px rgba(74, 155, 106, 0.3);
+  box-shadow: 0 0 8px rgba(74, 155, 106, 0.4);
 }
 
 /* --- Win overlay --- */
@@ -279,9 +278,8 @@ h1 {
   body { padding: env(safe-area-inset-top, 4px) 4px env(safe-area-inset-bottom, 4px); }
   h1 { font-size: 1.1rem; }
   .stats { font-size: 0.8rem; }
-  #grid { gap: 4px; }
+  #grid { gap: 2px; }
   .card-front::after { font-size: 1rem; }
-  .card-back { padding: 4%; border-width: 2px; }
   .card-front { border-width: 2px; }
   .diff-btn, #new-game-btn { padding: 4px 10px; font-size: 0.75rem; min-height: 32px; }
   .controls { gap: 4px; }
@@ -294,7 +292,6 @@ h1 {
   h1 { font-size: 1rem; }
   .controls { gap: 4px; }
   .diff-btn, #new-game-btn { padding: 2px 8px; font-size: 0.7rem; min-height: 28px; }
-  #grid { gap: 3px; }
+  #grid { gap: 2px; }
   .card-front { border-width: 1px; }
-  .card-back { border-width: 1px; padding: 3%; }
 }
