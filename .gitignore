@@ -1,14 +1,13 @@
-# Generated tiles
+# Intermediate processing artifacts
 web/tiles/
-web/tiles_clean/
 web/tiles_padded/
 web/tiles_prepped/
 web/tiles_svg/
-
-# Debug/tool artifacts
 web/rectified_debug.png
 web/rectified_display.jpg
 web/compare.html
+web/grid_tool.html
+web/tile_corners_tool.html
 
 # Python
 __pycache__/
