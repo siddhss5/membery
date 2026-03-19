@@ -42,19 +42,19 @@ TARGET_CORNERS = [
 # We take one tile per pair (the left one: columns 0, 2, 4, 6).
 TILE_NAMES = [
     # Row 0
-    "cherries", "plums", "sparrows", "beetle",
+    "cherries", "ellipse", "sparrow", "beetle",
     # Row 1
-    "boy", "ant", "diamonds", "triangles",
+    "black_haired_boy", "ant", "diamonds", "triangle",
     # Row 2
-    "chipmunk", "bananas", "cardinal", "tulips",
+    "lion", "bananas", "cardinal", "tulip",
     # Row 3
-    "curly_boy", "canary", "dice", "rabbit",
+    "red_haired_boy", "canary", "dice", "rabbit",
     # Row 4
-    "red_circle", "hexagons", "worms", "bee",
+    "red_circle", "hexagon", "skipping_rope", "bee",
     # Row 5
-    "lemons", "daisies", "checkerboard", "sunflower",
+    "lemon", "daisy", "checkerboard", "sunflower",
     # Row 6
-    "roller_skates", "grasshopper", "owl", "parrot",
+    "roller_skate", "grasshopper", "owls", "parrot",
     # Row 7
     "peacock", "strawberry", "doll", "baby_carriage",
     # Row 8
@@ -139,7 +139,7 @@ def crop_tiles(rectified):
     # default crop box. Positive dx1/dy1 = crop more from left/top,
     # negative dx2/dy2 = crop more from right/bottom.
     adjustments = {
-        "plums": (0, 30, -15, 0),         # trim table bleed at top-right
+        "ellipse": (0, 30, -15, 0),        # trim table bleed at top-right
         "checkerboard": (0, -10, 0, 0),   # extend up to show full pattern
         "stripes": (30, 0, 0, -45),       # trim bleed at bottom-left
         "baby_carriage": (0, 0, 0, -5),   # trim slight bleed at bottom

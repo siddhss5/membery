@@ -1,13 +1,13 @@
 // Membery — Memory matching game engine
 
 const TILE_NAMES = [
-  "cherries", "plums", "sparrows", "beetle",
-  "boy", "ant", "diamonds", "triangles",
-  "chipmunk", "bananas", "cardinal", "tulips",
-  "curly_boy", "canary", "dice", "rabbit",
-  "red_circle", "hexagons", "worms", "bee",
-  "lemons", "daisies", "checkerboard", "sunflower",
-  "roller_skates", "grasshopper", "owl", "parrot",
+  "cherries", "ellipse", "sparrow", "beetle",
+  "black_haired_boy", "ant", "diamonds", "triangle",
+  "lion", "bananas", "cardinal", "tulip",
+  "red_haired_boy", "canary", "dice", "rabbit",
+  "red_circle", "hexagon", "skipping_rope", "bee",
+  "lemon", "daisy", "checkerboard", "sunflower",
+  "roller_skate", "grasshopper", "owls", "parrot",
   "peacock", "strawberry", "doll", "baby_carriage",
   "flag", "rose", "tiger", "stripes",
 ];
@@ -98,7 +98,7 @@ function render() {
       <div class="card-inner">
         <div class="card-front"></div>
         <div class="card-back">
-          <img src="tiles_clean/${card.tile}.png" alt="${card.tile}" draggable="false">
+          <img src="tiles_clean/${card.tile}.png" alt="${card.tile}" draggable="false" loading="lazy">
         </div>
       </div>
     `;
