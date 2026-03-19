@@ -2,23 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Membery</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <header>
-    <h1>Membery</h1>
-    <div class="controls">
-      <button class="diff-btn" data-pairs="12">Easy (12)</button>
-      <button class="diff-btn active" data-pairs="18">Medium (18)</button>
-      <button class="diff-btn" data-pairs="36">Hard (36)</button>
-      <button id="new-game-btn">New Game</button>
+    <div class="header-row">
+      <h1>Membery</h1>
       <div class="stats">
-        <div>Moves: <span id="moves">0</span></div>
-        <div>Time: <span id="timer">0:00</span></div>
+        <span id="moves">0</span> moves
+        <span class="sep">·</span>
+        <span id="timer">0:00</span>
       </div>
+    </div>
+    <div class="controls">
+      <button class="diff-btn" data-pairs="12">Easy</button>
+      <button class="diff-btn active" data-pairs="18">Medium</button>
+      <button class="diff-btn" data-pairs="36">Hard</button>
+      <button id="new-game-btn">New Game</button>
     </div>
   </header>
 

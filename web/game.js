@@ -12,15 +12,15 @@ const TILE_NAMES = [
   "flag", "rose", "tiger", "stripes",
 ];
 
-// --- State ---
 let cards = [];
-let flipped = [];       // indices of currently face-up cards (max 2)
+let cardElements = [];
+let flipped = [];
 let matchedCount = 0;
 let totalPairs = 0;
 let moves = 0;
 let timerStart = null;
 let timerInterval = null;
-let locked = false;      // block clicks while checking a pair
+let locked = false;
 
 // --- Shuffle (Fisher-Yates) ---
 function shuffle(arr) {
@@ -34,26 +34,57 @@ function shuffle(arr) {
 // --- Build card deck ---
 function buildDeck(numPairs) {
   const selected = shuffle([...TILE_NAMES]).slice(0, numPairs);
-  // Each tile appears twice
-  const deck = selected.flatMap(name => [
-    { tile: name, matched: false, id: crypto.randomUUID() },
-    { tile: name, matched: false, id: crypto.randomUUID() },
-  ]);
-  return shuffle(deck);
+  return shuffle(selected.flatMap(name => [
+    { tile: name, matched: false },
+    { tile: name, matched: false },
+  ]));
 }
 
-// --- Grid layout ---
-function gridColumns(numCards) {
-  if (numCards <= 24) return 6;  // 12 pairs = 24 cards -> 6x4
-  if (numCards <= 36) return 6;  // 18 pairs = 36 cards -> 6x6
-  return 8;                      // 36 pairs = 72 cards -> 8x9
+// --- Layout ---
+// Computes columns and card size to guarantee everything fits the
+// viewport without scrolling, on any device or orientation.
+function computeLayout(numCards) {
+  const header = document.querySelector('header');
+  const bodyStyle = getComputedStyle(document.body);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const padH = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
+  const padV = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
+  const headerH = header ? header.offsetHeight + 8 : 0; // 8 = margin-bottom
+
+  const availW = vw - padH;
+  const availH = vh - padV - headerH;
+  const gap = vw < 480 ? 2 : 3;
+
+  // Pick columns: fewer on narrow screens for larger cards
+  const narrow = vw < 600;
+  const cols = numCards <= 36 ? (narrow ? 4 : 6) : (narrow ? 6 : 8);
+  const rows = Math.ceil(numCards / cols);
+
+  // Largest square card that fits both dimensions
+  const maxByWidth = (availW - gap * (cols - 1)) / cols;
+  const maxByHeight = (availH - gap * (rows - 1)) / rows;
+  const cardSize = Math.floor(Math.min(maxByWidth, maxByHeight));
+
+  return { cols, cardSize, gap };
+}
+
+function applyLayout() {
+  if (cards.length === 0) return;
+  const grid = document.getElementById('grid');
+  const { cols, cardSize, gap } = computeLayout(cards.length);
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cardSize}px)`;
+  grid.style.gridAutoRows = `${cardSize}px`;
+  grid.style.gap = `${gap}px`;
 }
 
 // --- Timer ---
 function startTimer() {
   if (timerStart) return;
   timerStart = Date.now();
-  timerInterval = setInterval(updateTimerDisplay, 100);
+  timerInterval = setInterval(updateTimerDisplay, 1000);
+  updateTimerDisplay();
 }
 
 function stopTimer() {
@@ -66,35 +97,26 @@ function resetTimer() {
   updateTimerDisplay();
 }
 
-function elapsed() {
-  if (!timerStart) return 0;
-  return (Date.now() - timerStart) / 1000;
-}
-
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
 function updateTimerDisplay() {
   const el = document.getElementById('timer');
-  if (el) el.textContent = formatTime(elapsed());
+  if (el) el.textContent = formatTime(timerStart ? Date.now() - timerStart : 0);
 }
 
-// --- Render ---
-function render() {
+// --- Grid ---
+function buildGrid() {
   const grid = document.getElementById('grid');
-  grid.style.gridTemplateColumns = `repeat(${gridColumns(cards.length)}, 1fr)`;
   grid.innerHTML = '';
+  cardElements = [];
 
   cards.forEach((card, idx) => {
-    const cardEl = document.createElement('div');
-    cardEl.className = 'card';
-    if (card.matched) cardEl.classList.add('matched');
-    if (flipped.includes(idx)) cardEl.classList.add('flipped');
-
-    cardEl.innerHTML = `
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
       <div class="card-inner">
         <div class="card-front"></div>
         <div class="card-back">
@@ -102,29 +124,40 @@ function render() {
         </div>
       </div>
     `;
-
-    cardEl.addEventListener('click', () => onCardClick(idx));
-    grid.appendChild(cardEl);
+    el.addEventListener('click', () => onCardClick(idx));
+    grid.appendChild(el);
+    cardElements.push(el);
   });
 
+  applyLayout();
+  updateStats();
+}
+
+function updateCards() {
+  cards.forEach((card, idx) => {
+    const el = cardElements[idx];
+    if (!el) return;
+    el.classList.toggle('flipped', flipped.includes(idx));
+    el.classList.toggle('matched', card.matched);
+  });
+  updateStats();
+}
+
+function updateStats() {
   document.getElementById('moves').textContent = moves;
 }
 
-// --- Click handler ---
+// --- Game logic ---
 function onCardClick(idx) {
-  if (locked) return;
-  if (flipped.includes(idx)) return;
-  if (cards[idx].matched) return;
+  if (locked || flipped.includes(idx) || cards[idx].matched) return;
 
-  // Start timer on first flip
   startTimer();
-
   flipped.push(idx);
-  render();
+  updateCards();
 
   if (flipped.length === 2) {
     moves++;
-    document.getElementById('moves').textContent = moves;
+    updateStats();
     checkMatch();
   }
 }
@@ -132,43 +165,36 @@ function onCardClick(idx) {
 function checkMatch() {
   const [a, b] = flipped;
   if (cards[a].tile === cards[b].tile) {
-    // Match!
     cards[a].matched = true;
     cards[b].matched = true;
     matchedCount++;
     flipped = [];
-    render();
-
+    updateCards();
     if (matchedCount === totalPairs) {
       stopTimer();
       showWin();
     }
   } else {
-    // No match — flip back after delay
     locked = true;
     setTimeout(() => {
       flipped = [];
       locked = false;
-      render();
+      updateCards();
     }, 900);
   }
 }
 
 // --- Win screen ---
 function showWin() {
-  const overlay = document.getElementById('win-overlay');
   document.getElementById('win-moves').textContent = moves;
-  document.getElementById('win-time').textContent = formatTime(elapsed());
-  overlay.classList.add('visible');
-}
-
-function hideWin() {
-  document.getElementById('win-overlay').classList.remove('visible');
+  document.getElementById('win-time').textContent =
+    formatTime(timerStart ? Date.now() - timerStart : 0);
+  document.getElementById('win-overlay').classList.add('visible');
 }
 
 // --- New game ---
 function newGame(numPairs) {
-  hideWin();
+  document.getElementById('win-overlay').classList.remove('visible');
   totalPairs = numPairs || totalPairs || 18;
   cards = buildDeck(totalPairs);
   flipped = [];
@@ -176,10 +202,9 @@ function newGame(numPairs) {
   moves = 0;
   locked = false;
   resetTimer();
-  render();
+  buildGrid();
 }
 
-// --- Difficulty selector ---
 function setDifficulty(numPairs) {
   document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.classList.toggle('active', parseInt(btn.dataset.pairs) === numPairs);
@@ -189,12 +214,11 @@ function setDifficulty(numPairs) {
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.diff-btn').forEach(btn => {
-    btn.addEventListener('click', () => setDifficulty(parseInt(btn.dataset.pairs)));
-  });
-
+  document.querySelectorAll('.diff-btn').forEach(btn =>
+    btn.addEventListener('click', () => setDifficulty(parseInt(btn.dataset.pairs)))
+  );
   document.getElementById('new-game-btn').addEventListener('click', () => newGame());
   document.getElementById('win-new-game').addEventListener('click', () => newGame());
-
+  window.addEventListener('resize', applyLayout);
   setDifficulty(18);
 });
