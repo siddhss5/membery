@@ -1,5 +1,6 @@
 # Generated tiles
 web/tiles/
+web/tiles_clean/
 
 # Python
 __pycache__/

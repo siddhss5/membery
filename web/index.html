@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Membery</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <h1>Membery</h1>
+    <div class="controls">
+      <button class="diff-btn" data-pairs="12">Easy (12)</button>
+      <button class="diff-btn active" data-pairs="18">Medium (18)</button>
+      <button class="diff-btn" data-pairs="36">Hard (36)</button>
+      <button id="new-game-btn">New Game</button>
+      <div class="stats">
+        <div>Moves: <span id="moves">0</span></div>
+        <div>Time: <span id="timer">0:00</span></div>
+      </div>
+    </div>
+  </header>
+
+  <div id="grid"></div>
+
+  <div id="win-overlay">
+    <div class="win-card">
+      <h2>You did it!</h2>
+      <div class="win-stats">
+        <div>Moves: <span id="win-moves">0</span></div>
+        <div>Time: <span id="win-time">0:00</span></div>
+      </div>
+      <button id="win-new-game">Play Again</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
