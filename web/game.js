@@ -120,7 +120,7 @@ function buildGrid() {
       <div class="card-inner">
         <div class="card-front"></div>
         <div class="card-back">
-          <img src="tiles_clean/${card.tile}.png" alt="${card.tile}" draggable="false" loading="lazy">
+          <img src="tiles_clean/${card.tile}.png" alt="${card.tile}" draggable="false">
         </div>
       </div>
     `;
