@@ -212,18 +212,13 @@ async function showWin() {
         const name = nameInput.value.trim();
         if (!name) { nameInput.focus(); return; }
         localStorage.setItem('membery_name', name);
-        newSubmitBtn.disabled = true;
-        newSubmitBtn.textContent = '...';
 
-        try {
-          const key = await submitScore(totalPairs, name, moves, timeMs);
-          hsSection.classList.add('hidden');
-          await showWinLeaderboard(totalPairs, key);
-        } catch (err) {
-          newSubmitBtn.textContent = 'Retry';
-          newSubmitBtn.disabled = false;
-          console.error('Score submit failed:', err);
-        }
+        // Submit to Firebase in the background (never blocks UI)
+        const localKey = submitScore(totalPairs, name, moves, timeMs);
+
+        // Immediately show leaderboard with the new score injected locally
+        hsSection.classList.add('hidden');
+        await showWinLeaderboard(totalPairs, name, moves, timeMs, localKey);
       };
 
       newSubmitBtn.addEventListener('click', doSubmit);
@@ -234,13 +229,19 @@ async function showWin() {
   }
 }
 
-async function showWinLeaderboard(difficulty, highlightKey) {
+async function showWinLeaderboard(difficulty, name, newMoves, newTimeMs, highlightKey) {
   const lbSection = document.getElementById('win-leaderboard');
   try {
-    const [topTime, topMoves] = await Promise.all([
+    let [topTime, topMoves] = await Promise.all([
       getTopByTime(difficulty),
       getTopByMoves(difficulty),
     ]);
+
+    // Inject the new score into the lists for immediate display
+    if (name) {
+      topTime = insertLocalScore(topTime, 'time', name, newMoves, newTimeMs, highlightKey);
+      topMoves = insertLocalScore(topMoves, 'moves', name, newMoves, newTimeMs, highlightKey);
+    }
 
     lbSection.innerHTML = `
       <div class="lb-section">

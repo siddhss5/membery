@@ -3,14 +3,27 @@
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Sign in anonymously (invisible to user).
-// Store the promise so submitScore can await it.
+// Sign in anonymously in the background.
 const authPromise = firebase.auth().signInAnonymously()
   .then(() => true)
   .catch(err => {
     console.warn('Anonymous auth failed:', err.message);
     return false;
   });
+
+// Pending scores that haven't been persisted yet
+const pendingScores = [];
+
+// Flush any pending scores once auth is ready
+authPromise.then(authed => {
+  if (!authed) return;
+  while (pendingScores.length > 0) {
+    const { difficulty, entry } = pendingScores.shift();
+    db.ref(`scores/${difficulty}`).push(entry).catch(err =>
+      console.warn('Failed to flush pending score:', err.message)
+    );
+  }
+});
 
 // --- Read top 10 ---
 
@@ -53,13 +66,10 @@ async function isTopScore(difficulty, moves, timeMs) {
 }
 
 // --- Submit score ---
+// Tries to write immediately. If auth isn't ready, queues it for later.
+// Always returns a local placeholder key so the UI can proceed.
 
-async function submitScore(difficulty, name, moves, timeMs) {
-  const authed = await authPromise;
-  if (!authed) {
-    throw new Error('Authentication failed — cannot submit score');
-  }
-
+function submitScore(difficulty, name, moves, timeMs) {
   const entry = {
     name: name.trim().slice(0, 15),
     moves,
@@ -67,8 +77,38 @@ async function submitScore(difficulty, name, moves, timeMs) {
     date: new Date().toISOString().split('T')[0],
   };
 
-  const ref = await db.ref(`scores/${difficulty}`).push(entry);
-  return ref.key;
+  const localKey = '_local_' + Date.now();
+
+  // Try to write now, fall back to queue
+  if (firebase.auth().currentUser) {
+    db.ref(`scores/${difficulty}`).push(entry).catch(err =>
+      console.warn('Score write failed:', err.message)
+    );
+  } else {
+    pendingScores.push({ difficulty, entry });
+  }
+
+  return localKey;
+}
+
+// --- Insert score into a sorted list for immediate display ---
+
+function insertLocalScore(scores, category, name, moves, timeMs, localKey) {
+  const entry = {
+    key: localKey,
+    name: name.trim().slice(0, 15),
+    moves,
+    time_ms: timeMs,
+    date: new Date().toISOString().split('T')[0],
+  };
+
+  const list = [...scores, entry];
+  if (category === 'time') {
+    list.sort((a, b) => a.time_ms - b.time_ms);
+  } else {
+    list.sort((a, b) => a.moves - b.moves);
+  }
+  return list.slice(0, 10);
 }
 
 // --- Render leaderboard tables ---
@@ -95,7 +135,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// formatTime is defined in game.js, but we need it here too
 function formatTimeMs(ms) {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
