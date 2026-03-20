@@ -41,8 +41,6 @@ function buildDeck(numPairs) {
 }
 
 // --- Layout ---
-// Computes columns and card size to guarantee everything fits the
-// viewport without scrolling, on any device or orientation.
 function computeLayout(numCards) {
   const header = document.querySelector('header');
   const bodyStyle = getComputedStyle(document.body);
@@ -51,18 +49,16 @@ function computeLayout(numCards) {
 
   const padH = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
   const padV = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
-  const headerH = header ? header.offsetHeight + 8 : 0; // 8 = margin-bottom
+  const headerH = header ? header.offsetHeight + 8 : 0;
 
   const availW = vw - padH;
   const availH = vh - padV - headerH;
   const gap = vw < 480 ? 2 : 3;
 
-  // Pick columns: fewer on narrow screens for larger cards
   const narrow = vw < 600;
   const cols = numCards <= 36 ? (narrow ? 4 : 6) : (narrow ? 6 : 8);
   const rows = Math.ceil(numCards / cols);
 
-  // Largest square card that fits both dimensions
   const maxByWidth = (availW - gap * (cols - 1)) / cols;
   const maxByHeight = (availH - gap * (rows - 1)) / rows;
   const cardSize = Math.floor(Math.min(maxByWidth, maxByHeight));
@@ -87,9 +83,7 @@ function startTimer() {
   updateTimerDisplay();
 }
 
-function stopTimer() {
-  clearInterval(timerInterval);
-}
+function stopTimer() { clearInterval(timerInterval); }
 
 function resetTimer() {
   stopTimer();
@@ -150,7 +144,6 @@ function updateStats() {
 // --- Game logic ---
 function onCardClick(idx) {
   if (locked || flipped.includes(idx) || cards[idx].matched) return;
-
   startTimer();
   flipped.push(idx);
   updateCards();
@@ -185,11 +178,113 @@ function checkMatch() {
 }
 
 // --- Win screen ---
-function showWin() {
+async function showWin() {
+  const timeMs = timerStart ? Date.now() - timerStart : 0;
+
   document.getElementById('win-moves').textContent = moves;
-  document.getElementById('win-time').textContent =
-    formatTime(timerStart ? Date.now() - timerStart : 0);
+  document.getElementById('win-time').textContent = formatTime(timeMs);
+
+  // Reset win card state
+  const hsSection = document.getElementById('win-highscore');
+  const lbSection = document.getElementById('win-leaderboard');
+  hsSection.classList.add('hidden');
+  lbSection.classList.add('hidden');
+  lbSection.innerHTML = '';
+
   document.getElementById('win-overlay').classList.add('visible');
+
+  // Check if this is a top score
+  try {
+    const isTop = await isTopScore(totalPairs, moves, timeMs);
+    if (isTop) {
+      hsSection.classList.remove('hidden');
+      const nameInput = document.getElementById('name-input');
+      const savedName = localStorage.getItem('membery_name') || '';
+      nameInput.value = savedName;
+      nameInput.focus();
+
+      // Wire submit (once)
+      const submitBtn = document.getElementById('submit-score-btn');
+      const newSubmitBtn = submitBtn.cloneNode(true);
+      submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+
+      const doSubmit = async () => {
+        const name = nameInput.value.trim();
+        if (!name) { nameInput.focus(); return; }
+        localStorage.setItem('membery_name', name);
+        newSubmitBtn.disabled = true;
+        newSubmitBtn.textContent = '...';
+
+        const key = await submitScore(totalPairs, name, moves, timeMs);
+        hsSection.classList.add('hidden');
+        await showWinLeaderboard(totalPairs, key);
+      };
+
+      newSubmitBtn.addEventListener('click', doSubmit);
+      nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSubmit(); });
+    }
+  } catch (err) {
+    console.warn('Leaderboard check failed:', err.message);
+  }
+}
+
+async function showWinLeaderboard(difficulty, highlightKey) {
+  const lbSection = document.getElementById('win-leaderboard');
+  try {
+    const [topTime, topMoves] = await Promise.all([
+      getTopByTime(difficulty),
+      getTopByMoves(difficulty),
+    ]);
+
+    lbSection.innerHTML = `
+      <div class="lb-section">
+        <h3>Fastest Time</h3>
+        ${renderLeaderboardTable(topTime, 'time', highlightKey)}
+      </div>
+      <div class="lb-section">
+        <h3>Fewest Moves</h3>
+        ${renderLeaderboardTable(topMoves, 'moves', highlightKey)}
+      </div>
+    `;
+    lbSection.classList.remove('hidden');
+  } catch (err) {
+    console.warn('Failed to load leaderboard:', err.message);
+  }
+}
+
+// --- Leaderboard overlay ---
+let currentLbDifficulty = 18;
+
+async function showLeaderboard(difficulty) {
+  currentLbDifficulty = difficulty || currentLbDifficulty;
+
+  // Update tab styling
+  document.querySelectorAll('.lb-diff-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.diff) === currentLbDifficulty);
+  });
+
+  const timeDiv = document.getElementById('lb-time');
+  const movesDiv = document.getElementById('lb-moves');
+  timeDiv.innerHTML = '<div class="lb-empty">Loading...</div>';
+  movesDiv.innerHTML = '<div class="lb-empty">Loading...</div>';
+
+  document.getElementById('leaderboard-overlay').classList.add('visible');
+
+  try {
+    const [topTime, topMoves] = await Promise.all([
+      getTopByTime(currentLbDifficulty),
+      getTopByMoves(currentLbDifficulty),
+    ]);
+    timeDiv.innerHTML = renderLeaderboardTable(topTime, 'time');
+    movesDiv.innerHTML = renderLeaderboardTable(topMoves, 'moves');
+  } catch (err) {
+    timeDiv.innerHTML = '<div class="lb-empty">Offline</div>';
+    movesDiv.innerHTML = '<div class="lb-empty">Offline</div>';
+  }
+}
+
+function hideLeaderboard() {
+  document.getElementById('leaderboard-overlay').classList.remove('visible');
 }
 
 // --- New game ---
@@ -213,12 +308,6 @@ function setDifficulty(numPairs) {
 }
 
 // --- Splash screen ---
-function showSplash() {
-  document.getElementById('splash').classList.remove('hidden');
-  document.querySelector('header').classList.add('hidden');
-  document.getElementById('grid').classList.add('hidden');
-}
-
 function hideSplash() {
   document.getElementById('splash').classList.add('hidden');
   document.querySelector('header').classList.remove('hidden');
@@ -227,7 +316,6 @@ function hideSplash() {
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
-  // Start on splash
   document.querySelector('header').classList.add('hidden');
   document.getElementById('grid').classList.add('hidden');
 
@@ -242,4 +330,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('new-game-btn').addEventListener('click', () => newGame());
   document.getElementById('win-new-game').addEventListener('click', () => newGame());
   window.addEventListener('resize', applyLayout);
+
+  // Trophy buttons
+  document.getElementById('trophy-btn').addEventListener('click', () => showLeaderboard(totalPairs));
+  document.getElementById('splash-trophy-btn').addEventListener('click', () => showLeaderboard(18));
+  document.getElementById('leaderboard-close').addEventListener('click', hideLeaderboard);
+
+  // Leaderboard difficulty tabs
+  document.querySelectorAll('.lb-diff-btn').forEach(btn =>
+    btn.addEventListener('click', () => showLeaderboard(parseInt(btn.dataset.diff)))
+  );
+
+  // Close leaderboard on overlay click
+  document.getElementById('leaderboard-overlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) hideLeaderboard();
+  });
 });

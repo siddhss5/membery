@@ -11,10 +11,13 @@
   <header>
     <div class="header-row">
       <h1>Membery</h1>
-      <div class="stats">
-        <span id="moves">0</span> moves
-        <span class="sep">·</span>
-        <span id="timer">0:00</span>
+      <div class="header-right">
+        <div class="stats">
+          <span id="moves">0</span> moves
+          <span class="sep">&middot;</span>
+          <span id="timer">0:00</span>
+        </div>
+        <button id="trophy-btn" class="trophy-btn" title="Leaderboard">&#127942;</button>
       </div>
     </div>
     <div class="controls">
@@ -28,22 +31,64 @@
   <!-- Splash screen -->
   <div id="splash">
     <img src="cover.jpg" alt="The Original Memory — Card Matching Game" id="cover-img">
-    <button id="play-btn">Play</button>
+    <div class="splash-buttons">
+      <button id="play-btn">Play</button>
+      <button id="splash-trophy-btn" class="trophy-btn" title="Leaderboard">&#127942;</button>
+    </div>
   </div>
 
   <div id="grid"></div>
 
+  <!-- Win overlay -->
   <div id="win-overlay">
     <div class="win-card">
-      <h2>You did it!</h2>
+      <h2 id="win-title">You did it!</h2>
       <div class="win-stats">
         <div>Moves: <span id="win-moves">0</span></div>
         <div>Time: <span id="win-time">0:00</span></div>
       </div>
+      <div id="win-highscore" class="win-highscore hidden">
+        <div class="highscore-label">New high score!</div>
+        <div class="name-input-row">
+          <input type="text" id="name-input" placeholder="Your name" maxlength="15" autocomplete="off">
+          <button id="submit-score-btn">Submit</button>
+        </div>
+      </div>
+      <div id="win-leaderboard" class="hidden"></div>
       <button id="win-new-game">Play Again</button>
     </div>
   </div>
 
+  <!-- Leaderboard overlay -->
+  <div id="leaderboard-overlay">
+    <div class="leaderboard-card">
+      <div class="leaderboard-header">
+        <h2>Leaderboard</h2>
+        <button id="leaderboard-close" class="close-btn">&times;</button>
+      </div>
+      <div class="leaderboard-tabs">
+        <button class="lb-diff-btn active" data-diff="12">Easy</button>
+        <button class="lb-diff-btn" data-diff="18">Medium</button>
+        <button class="lb-diff-btn" data-diff="36">Hard</button>
+      </div>
+      <div class="leaderboard-tables">
+        <div class="lb-section">
+          <h3>Fastest Time</h3>
+          <div id="lb-time"></div>
+        </div>
+        <div class="lb-section">
+          <h3>Fewest Moves</h3>
+          <div id="lb-moves"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="scores.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

@@ -44,6 +44,40 @@ h1 {
   color: #5a2d0c;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trophy-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.trophy-btn:hover { opacity: 1; }
+
+.splash-buttons {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+#splash-trophy-btn {
+  font-size: 1.6rem;
+  background: #c4944a;
+  border: 3px solid #a87830;
+  border-radius: 12px;
+  padding: 14px 20px;
+  opacity: 1;
+}
+
 .stats {
   font-size: 0.9rem;
   color: #7a5a3a;
@@ -252,7 +286,178 @@ h1 {
 
 #win-new-game:hover { background: #d05548; }
 
+/* --- High score in win card --- */
+.hidden { display: none !important; }
+
+.win-highscore {
+  margin-bottom: 16px;
+}
+
+.highscore-label {
+  color: #c0453a;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.name-input-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+#name-input {
+  padding: 8px 12px;
+  border: 2px solid #c4944a;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #fff;
+  color: #3a2010;
+  width: 140px;
+  font-family: inherit;
+}
+
+#name-input:focus { outline: none; border-color: #c0453a; }
+
+#submit-score-btn {
+  background: #c0453a;
+  color: #fff;
+  border: 2px solid #a03028;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+#submit-score-btn:hover { background: #d05548; }
+
+/* --- Leaderboard overlay --- */
+#leaderboard-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(58, 32, 16, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 200;
+}
+
+#leaderboard-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.leaderboard-card {
+  background: #f5ece0;
+  border: 4px solid #c0453a;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 480px;
+  width: 90vw;
+  max-height: 85dvh;
+  overflow-y: auto;
+}
+
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.leaderboard-header h2 { font-size: 1.4rem; color: #5a2d0c; }
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #7a5a3a;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.close-btn:hover { color: #c0453a; }
+
+.leaderboard-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.lb-diff-btn {
+  background: #c4944a;
+  color: #fff;
+  border: 2px solid #a87830;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.lb-diff-btn.active { background: #5a2d0c; border-color: #8b5e3c; }
+
+.leaderboard-tables {
+  display: flex;
+  gap: 16px;
+}
+
+.lb-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.lb-section h3 {
+  font-size: 0.85rem;
+  color: #7a5a3a;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.lb-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #e0d0c0;
+  color: #3a2010;
+}
+
+.lb-rank { width: 24px; color: #7a5a3a; text-align: center; }
+.lb-name { font-weight: 600; }
+.lb-value { text-align: right; color: #5a2d0c; font-weight: 600; }
+
+.lb-highlight td {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.lb-empty {
+  text-align: center;
+  color: #7a5a3a;
+  font-size: 0.85rem;
+  padding: 16px 0;
+}
+
+/* Win card leaderboard tables */
+#win-leaderboard {
+  margin-bottom: 16px;
+}
+
+#win-leaderboard .leaderboard-tables { gap: 12px; }
+#win-leaderboard .lb-section h3 { font-size: 0.8rem; }
+#win-leaderboard .lb-table { font-size: 0.75rem; }
+
 /* --- Responsive --- */
+@media (max-width: 520px) {
+  .leaderboard-tables { flex-direction: column; gap: 12px; }
+}
+
 @media (max-width: 480px) {
   body { padding: env(safe-area-inset-top, 4px) 4px env(safe-area-inset-bottom, 4px); }
   h1 { font-size: 1.1rem; }
