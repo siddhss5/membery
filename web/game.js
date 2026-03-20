@@ -215,9 +215,15 @@ async function showWin() {
         newSubmitBtn.disabled = true;
         newSubmitBtn.textContent = '...';
 
-        const key = await submitScore(totalPairs, name, moves, timeMs);
-        hsSection.classList.add('hidden');
-        await showWinLeaderboard(totalPairs, key);
+        try {
+          const key = await submitScore(totalPairs, name, moves, timeMs);
+          hsSection.classList.add('hidden');
+          await showWinLeaderboard(totalPairs, key);
+        } catch (err) {
+          newSubmitBtn.textContent = 'Retry';
+          newSubmitBtn.disabled = false;
+          console.error('Score submit failed:', err);
+        }
       };
 
       newSubmitBtn.addEventListener('click', doSubmit);

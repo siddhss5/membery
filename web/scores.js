@@ -2,14 +2,15 @@
 
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-let authReady = false;
 
-// Sign in anonymously (invisible to user)
-firebase.auth().signInAnonymously().then(() => {
-  authReady = true;
-}).catch(err => {
-  console.warn('Anonymous auth failed:', err.message);
-});
+// Sign in anonymously (invisible to user).
+// Store the promise so submitScore can await it.
+const authPromise = firebase.auth().signInAnonymously()
+  .then(() => true)
+  .catch(err => {
+    console.warn('Anonymous auth failed:', err.message);
+    return false;
+  });
 
 // --- Read top 10 ---
 
@@ -54,9 +55,9 @@ async function isTopScore(difficulty, moves, timeMs) {
 // --- Submit score ---
 
 async function submitScore(difficulty, name, moves, timeMs) {
-  if (!authReady) {
-    console.warn('Auth not ready, cannot submit score');
-    return null;
+  const authed = await authPromise;
+  if (!authed) {
+    throw new Error('Authentication failed — cannot submit score');
   }
 
   const entry = {
