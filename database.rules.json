@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "scores": {
+      ".read": true,
+      "$difficulty": {
+        ".write": "auth != null",
+        "$scoreId": {
+          ".validate": "newData.hasChildren(['name', 'moves', 'time_ms', 'date']) && newData.child('name').isString() && newData.child('name').val().length <= 15 && newData.child('moves').isNumber() && newData.child('time_ms').isNumber()"
+        }
+      }
+    }
+  }
+}
