@@ -1,4 +1,6 @@
 // feedback.js — Sound effects (Web Audio API) and haptic feedback (Vibration API)
+// Note: Vibration API is blocked on iOS (Apple restriction). Haptics only work on Android.
+// Native iOS haptics require a native app shell (e.g., Capacitor) with UIImpactFeedbackGenerator.
 
 let audioCtx = null;
 let muted = localStorage.getItem('membery_mute') === '1';
