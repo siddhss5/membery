@@ -145,6 +145,7 @@ function updateStats() {
 function onCardClick(idx) {
   if (locked || flipped.includes(idx) || cards[idx].matched) return;
   startTimer();
+  sfxFlip();
   flipped.push(idx);
   updateCards();
 
@@ -162,13 +163,16 @@ function checkMatch() {
     cards[b].matched = true;
     matchedCount++;
     flipped = [];
+    sfxMatch();
     updateCards();
     if (matchedCount === totalPairs) {
       stopTimer();
+      sfxWin();
       showWin();
     }
   } else {
     locked = true;
+    sfxMismatch();
     setTimeout(() => {
       flipped = [];
       locked = false;
@@ -305,6 +309,7 @@ function newGame(numPairs) {
   locked = false;
   resetTimer();
   buildGrid();
+  sfxNewGame();
 }
 
 function setDifficulty(numPairs) {
@@ -337,6 +342,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('new-game-btn').addEventListener('click', () => newGame());
   document.getElementById('win-new-game').addEventListener('click', () => newGame());
   window.addEventListener('resize', applyLayout);
+
+  // Mute button
+  const muteBtn = document.getElementById('mute-btn');
+  function updateMuteBtn() { muteBtn.innerHTML = isMuted() ? '&#128263;' : '&#128264;'; }
+  updateMuteBtn();
+  muteBtn.addEventListener('click', () => { toggleMute(); updateMuteBtn(); });
 
   // Trophy buttons
   document.getElementById('trophy-btn').addEventListener('click', () => showLeaderboard(totalPairs));
