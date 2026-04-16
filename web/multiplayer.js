@@ -134,15 +134,30 @@ if (typeof document !== 'undefined') {
 
     function getDb() { return firebase.database(); }
 
-    function getUid() {
-      const user = firebase.auth().currentUser;
-      return user ? user.uid : null;
+    // Resolve with the authenticated user's UID, or null if auth fails.
+    // Waits for both the authPromise AND onAuthStateChanged to ensure
+    // currentUser is populated.
+    function waitForUid() {
+      return new Promise((resolve) => {
+        const currentUser = firebase.auth().currentUser;
+        if (currentUser) { resolve(currentUser.uid); return; }
+
+        const unsub = firebase.auth().onAuthStateChanged(user => {
+          if (user) { unsub(); resolve(user.uid); }
+        });
+
+        // Safety timeout
+        setTimeout(() => {
+          unsub();
+          const u = firebase.auth().currentUser;
+          resolve(u ? u.uid : null);
+        }, 5000);
+      });
     }
 
     // --- Room creation ---
     async function createRoom(difficulty) {
-      await authPromise;
-      myUid = getUid();
+      myUid = await waitForUid();
       if (!myUid) { alert('Authentication failed. Please refresh.'); return; }
 
       const name = getPlayerName();
@@ -180,8 +195,7 @@ if (typeof document !== 'undefined') {
 
     // --- Room joining ---
     async function joinRoom(code) {
-      await authPromise;
-      myUid = getUid();
+      myUid = await waitForUid();
       if (!myUid) { alert('Authentication failed. Please refresh.'); return; }
 
       code = code.toUpperCase().trim();
@@ -190,8 +204,13 @@ if (typeof document !== 'undefined') {
 
       const room = snap.val();
 
-      // Already a player?
+      // Already a player? (e.g., reconnecting in the same browser session)
       if (room.players && room.players[myUid]) {
+        // If we're the only player, we're the host re-attaching
+        if (room.playerOrder.length === 1) {
+          alert('You cannot join your own room. Open the link in a different browser or an incognito window.');
+          return;
+        }
         roomCode = code;
         listenToRoom(code);
         return;
@@ -328,22 +347,19 @@ if (typeof document !== 'undefined') {
     }
 
     // --- Share ---
+    // Simple copy-to-clipboard. Works identically on all devices.
     function shareRoom(code) {
       const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
-      const shareData = {
-        title: 'Membery',
-        text: 'Play memory with me!',
-        url,
-      };
 
-      if (navigator.share) {
-        navigator.share(shareData).catch(() => {});
-      } else {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(() => {
-          showToast('Link copied!');
+          showToast('Link copied! Paste it to your friend.');
         }).catch(() => {
           prompt('Copy this link:', url);
         });
+      } else {
+        // Legacy fallback for older browsers
+        prompt('Copy this link:', url);
       }
     }
 
@@ -440,12 +456,18 @@ if (typeof document !== 'undefined') {
 
       mpSection.innerHTML = `
         <div class="mp-lobby">
-          <h2>Room: <span class="mp-code">${code}</span></h2>
+          <h2>Room Code</h2>
+          <input class="mp-code-display" value="${code}" readonly>
           <p class="mp-waiting">Waiting for a friend to join...</p>
-          <button id="mp-share-btn" class="mp-primary-btn">Share Invite</button>
+          <button id="mp-share-btn" class="mp-primary-btn">Copy Invite Link</button>
           <button class="mp-back-btn" id="mp-lobby-back">Cancel</button>
         </div>
       `;
+
+      // Auto-select on focus/tap for easy copying
+      const codeInput = mpSection.querySelector('.mp-code-display');
+      codeInput.addEventListener('focus', e => e.target.select());
+      codeInput.addEventListener('click', e => e.target.select());
 
       document.getElementById('mp-share-btn').addEventListener('click', () => shareRoom(code));
       document.getElementById('mp-lobby-back').addEventListener('click', () => {
@@ -481,7 +503,7 @@ if (typeof document !== 'undefined') {
           turnText = winner.uid === myUid ? 'You win!' : `${winner.name} wins!`;
         }
       } else if (role === 'spectator') {
-        turnText = `${currentPlayerName}'s turn (Spectating)`;
+        turnText = `${currentPlayerName}'s turn`;
       } else if (isMyTurn) {
         turnText = 'Your turn — flip a card!';
       } else {
@@ -498,9 +520,13 @@ if (typeof document !== 'undefined') {
       // Build header + grid
       const cols = MP.gridColumns(room.board.length, window.innerWidth);
 
+      const spectatorBadge = role === 'spectator'
+        ? `<div class="mp-spectator-badge">Spectating</div>` : '';
+
       mpSection.innerHTML = `
-        <div class="mp-game">
+        <div class="mp-game ${role === 'spectator' ? 'mp-spectating' : ''}">
           <div class="mp-header">
+            ${spectatorBadge}
             <div class="mp-turn">${turnText}</div>
             <div class="mp-scores">${scoreHtml}</div>
           </div>

@@ -13,6 +13,8 @@
   text-align: center;
   max-width: 400px;
   width: 90vw;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .mp-menu h2, .mp-lobby h2 {
@@ -110,11 +112,33 @@
 .mp-back-btn:hover { color: #5a2d0c; }
 
 /* Lobby */
-.mp-code {
-  font-size: 2rem;
-  letter-spacing: 0.3em;
-  color: #c0453a;
+.mp-code-display {
+  display: block;
+  margin: 0 auto 20px;
+  box-sizing: content-box;
+  width: 5ch;
+  padding: 14px 20px 14px 26px;     /* right padding less so letter-spacing doesn't push text left */
+  font-size: 2.4rem;
   font-weight: 800;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-indent: 0;
+  color: #c0453a;
+  background: #fff;
+  border: 3px solid #c4944a;
+  border-radius: 12px;
+  font-family: inherit;
+  -webkit-user-select: all;
+  user-select: all;
+  -webkit-touch-callout: default;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mp-code-display:focus {
+  outline: none;
+  border-color: #c0453a;
+  box-shadow: 0 2px 12px rgba(192, 69, 58, 0.25);
 }
 
 .mp-waiting {
@@ -168,6 +192,23 @@
   color: #b89878;
 }
 
+.mp-spectator-badge {
+  display: inline-block;
+  background: #7a5a3a;
+  color: #f5ece0;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.mp-spectating .card {
+  cursor: default;
+}
+
 .mp-grid {
   display: grid;
   width: fit-content;
@@ -209,7 +250,13 @@
 @media (max-width: 480px) {
   .mp-menu h2, .mp-lobby h2 { font-size: 1.2rem; }
   .mp-primary-btn { padding: 10px 24px; font-size: 1rem; }
-  .mp-code { font-size: 1.6rem; }
+  .mp-code-display { font-size: 2rem; padding: 12px 16px 12px 22px; }
   .mp-turn { font-size: 0.95rem; }
   .mp-scores { font-size: 0.8rem; }
+  .mp-join-row { flex-direction: column; gap: 10px; width: 100%; }
+  #mp-join-input { width: 100%; max-width: 220px; }
+  .mp-join-row .mp-primary-btn { width: 100%; max-width: 220px; }
+  .mp-menu-buttons { width: 100%; }
+  .mp-finished-buttons { flex-direction: column; gap: 10px; width: 100%; max-width: 240px; }
+  .mp-finished-buttons .mp-primary-btn { width: 100%; }
 }

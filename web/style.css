@@ -79,7 +79,11 @@ h1 {
 .splash-buttons {
   display: flex;
   align-items: stretch;
-  gap: 16px;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  padding: 0 12px;
 }
 
 #splash-trophy-btn {
@@ -495,6 +499,10 @@ h1 {
   .card-front { border-width: 2px; }
   .diff-btn, #new-game-btn { padding: 4px 10px; font-size: 0.75rem; min-height: 32px; }
   .controls { gap: 4px; }
+  /* Splash buttons: shrink and allow wrap on narrow screens */
+  #play-btn { padding: 12px 28px; font-size: 1.1rem; }
+  .mp-splash-btn { padding: 12px 20px; font-size: 0.9rem; }
+  #splash-trophy-btn { padding: 12px 16px; }
 }
 
 @media (max-height: 500px) {
