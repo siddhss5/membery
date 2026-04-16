@@ -1,0 +1,25 @@
+{
+  "name": "membery",
+  "version": "1.0.0",
+  "description": "A digital recreation of Milton Bradley's **\"The Original Memory\"** card matching game.",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siddhss5/membery.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/siddhss5/membery/issues"
+  },
+  "homepage": "https://github.com/siddhss5/membery#readme",
+  "devDependencies": {
+    "jsdom": "^27.0.1",
+    "vitest": "^3.2.4"
+  }
+}
