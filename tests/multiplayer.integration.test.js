@@ -382,3 +382,129 @@ describe('Edge cases', () => {
     expect(unique.size).toBe(36);
   });
 });
+
+// ============================================================
+// Session score scenarios
+// ============================================================
+
+describe('Session scoreline across rematches', () => {
+  let db;
+  beforeEach(() => { db = new MockFirebaseDb(); });
+
+  it('preserves session scores through Play Again', () => {
+    db.set('rooms/ABCD', {
+      board: ['a', 'a'],
+      matched: [1, 1],
+      flipped: [],
+      players: { host1: { name: 'Alice', score: 1 }, guest1: { name: 'Bob', score: 0 } },
+      playerOrder: ['host1', 'guest1'],
+      currentTurn: 0,
+      status: 'finished',
+      difficulty: 1,
+      sessionScores: { host1: 1, guest1: 0 },
+    });
+
+    const room = db.get('rooms/ABCD');
+    const newBoard = MP.buildBoard(1, ['x']);
+    const updates = MP.applyResetForRematch(room, newBoard);
+    db.update(Object.fromEntries(
+      Object.entries(updates).map(([k, v]) => [`rooms/ABCD/${k}`, v])
+    ));
+
+    const newRoom = db.get('rooms/ABCD');
+    expect(newRoom.sessionScores).toEqual({ host1: 1, guest1: 0 });
+    expect(newRoom.players.host1.score).toBe(0);
+    expect(newRoom.status).toBe('playing');
+  });
+
+  it('three rematches: host wins all → session 3-0', () => {
+    let sessionScores = { host1: 0, guest1: 0 };
+    for (let i = 0; i < 3; i++) {
+      // Simulate game end with host winning
+      const players = { host1: { name: 'A', score: 1 }, guest1: { name: 'B', score: 0 } };
+      const winner = MP.getWinner(players);
+      const updates = MP.incrementSessionScore({ sessionScores }, winner.uid);
+      sessionScores = updates.sessionScores;
+    }
+    expect(sessionScores).toEqual({ host1: 3, guest1: 0 });
+  });
+
+  it('mixed rematches: A-B-A-B → session 2-2', () => {
+    let scores = { a: 0, b: 0 };
+    const winners = ['a', 'b', 'a', 'b'];
+    for (const w of winners) {
+      scores = MP.incrementSessionScore({ sessionScores: scores }, w).sessionScores;
+    }
+    expect(scores).toEqual({ a: 2, b: 2 });
+  });
+});
+
+// ============================================================
+// Disconnect / forfeit scenarios
+// ============================================================
+
+describe('Disconnect and forfeit', () => {
+  it('detects opponent disconnect', () => {
+    const room = {
+      status: 'playing',
+      playerOrder: ['host1', 'guest1'],
+      presence: { host1: true, guest1: false },
+    };
+    expect(MP.isPaused(room)).toBe(true);
+    expect(MP.getOfflinePlayers(room)).toEqual(['guest1']);
+  });
+
+  it('grace period expires triggers forfeit eligibility', () => {
+    const NOW = 1000000000000;
+    const room = {
+      status: 'playing',
+      playerOrder: ['host1', 'guest1'],
+      presence: { host1: true, guest1: false },
+      disconnectedAt: { guest1: NOW - (3 * 60 * 1000) }, // 3 min ago
+      sessionScores: { host1: 0, guest1: 0 },
+    };
+    expect(MP.timeUntilForfeit(room, NOW, 2 * 60 * 1000)).toBe(0);
+
+    // Online player can claim forfeit
+    const updates = MP.applyForfeit(room, 'host1');
+    expect(updates.status).toBe('finished');
+    expect(updates.forfeitWinner).toBe('host1');
+    expect(updates.sessionScores).toEqual({ host1: 1, guest1: 0 });
+  });
+
+  it('reconnect within grace dismisses pause', () => {
+    const room = {
+      status: 'playing',
+      playerOrder: ['host1', 'guest1'],
+      presence: { host1: true, guest1: true },  // came back
+      disconnectedAt: {},
+    };
+    expect(MP.isPaused(room)).toBe(false);
+    expect(MP.timeUntilForfeit(room, Date.now(), 2 * 60 * 1000)).toBe(Infinity);
+  });
+});
+
+// ============================================================
+// Room expiry
+// ============================================================
+
+describe('Room expiry', () => {
+  const TTL = 30 * 60 * 1000;
+  const NOW = 1000000000000;
+
+  it('fresh room is not expired', () => {
+    expect(MP.isExpired({ createdAt: NOW - 1000 }, NOW, TTL)).toBe(false);
+  });
+
+  it('30-minute-old room with no activity is expired', () => {
+    expect(MP.isExpired({ createdAt: NOW - (31 * 60 * 1000) }, NOW, TTL)).toBe(true);
+  });
+
+  it('old room with recent activity is not expired', () => {
+    const room = {
+      createdAt: NOW - (60 * 60 * 1000),  // 1 hr old
+      lastActivityAt: NOW - 60000,         // 1 min ago
+    };
+    expect(MP.isExpired(room, NOW, TTL)).toBe(false);
+  });
+});

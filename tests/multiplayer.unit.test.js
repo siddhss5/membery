@@ -324,3 +324,273 @@ describe('gridColumns', () => {
     expect(MP.gridColumns(72, 400)).toBe(6);
   });
 });
+
+// ============================================================
+// Name sanitization
+// ============================================================
+
+describe('sanitizeName', () => {
+  it('trims whitespace', () => {
+    expect(MP.sanitizeName('  Sidd  ')).toBe('Sidd');
+  });
+
+  it('caps at 15 chars', () => {
+    expect(MP.sanitizeName('A'.repeat(20))).toHaveLength(15);
+  });
+
+  it('strips control characters', () => {
+    expect(MP.sanitizeName('Sid\u0000\u001Fd')).toBe('Sidd');
+  });
+
+  it('returns empty for empty input', () => {
+    expect(MP.sanitizeName('')).toBe('');
+    expect(MP.sanitizeName('   ')).toBe('');
+  });
+
+  it('returns empty for non-string input', () => {
+    expect(MP.sanitizeName(null)).toBe('');
+    expect(MP.sanitizeName(undefined)).toBe('');
+    expect(MP.sanitizeName(42)).toBe('');
+  });
+});
+
+// ============================================================
+// Room expiry
+// ============================================================
+
+describe('isExpired', () => {
+  const TTL = 30 * 60 * 1000; // 30 min
+  const NOW = 1000000000000;
+
+  it('returns false for fresh room', () => {
+    const room = { createdAt: NOW - 60000 };
+    expect(MP.isExpired(room, NOW, TTL)).toBe(false);
+  });
+
+  it('returns true for old room', () => {
+    const room = { createdAt: NOW - (31 * 60 * 1000) };
+    expect(MP.isExpired(room, NOW, TTL)).toBe(true);
+  });
+
+  it('uses lastActivityAt if newer than createdAt', () => {
+    const room = {
+      createdAt: NOW - (60 * 60 * 1000),
+      lastActivityAt: NOW - 60000,
+    };
+    expect(MP.isExpired(room, NOW, TTL)).toBe(false);
+  });
+
+  it('returns true for null room', () => {
+    expect(MP.isExpired(null, NOW, TTL)).toBe(true);
+  });
+
+  it('handles missing timestamps', () => {
+    expect(MP.isExpired({}, NOW, TTL)).toBe(true);
+  });
+});
+
+// ============================================================
+// Presence
+// ============================================================
+
+describe('getOnlinePlayers / getOfflinePlayers', () => {
+  it('detects online players from presence map', () => {
+    const room = {
+      playerOrder: ['uid1', 'uid2'],
+      presence: { uid1: true, uid2: false },
+    };
+    expect(MP.getOnlinePlayers(room)).toEqual(['uid1']);
+    expect(MP.getOfflinePlayers(room)).toEqual(['uid2']);
+  });
+
+  it('treats missing presence as offline', () => {
+    const room = { playerOrder: ['uid1', 'uid2'], presence: { uid1: true } };
+    expect(MP.getOfflinePlayers(room)).toEqual(['uid2']);
+  });
+
+  it('handles no presence map', () => {
+    const room = { playerOrder: ['uid1', 'uid2'] };
+    expect(MP.getOnlinePlayers(room)).toEqual([]);
+    expect(MP.getOfflinePlayers(room)).toEqual(['uid1', 'uid2']);
+  });
+
+  it('handles null room', () => {
+    expect(MP.getOnlinePlayers(null)).toEqual([]);
+    expect(MP.getOfflinePlayers(null)).toEqual([]);
+  });
+});
+
+describe('isPaused', () => {
+  it('true when player is offline mid-game', () => {
+    const room = {
+      status: 'playing',
+      playerOrder: ['uid1', 'uid2'],
+      presence: { uid1: true, uid2: false },
+    };
+    expect(MP.isPaused(room)).toBe(true);
+  });
+
+  it('false when all players online', () => {
+    const room = {
+      status: 'playing',
+      playerOrder: ['uid1', 'uid2'],
+      presence: { uid1: true, uid2: true },
+    };
+    expect(MP.isPaused(room)).toBe(false);
+  });
+
+  it('false when game finished', () => {
+    const room = {
+      status: 'finished',
+      playerOrder: ['uid1', 'uid2'],
+      presence: { uid1: true, uid2: false },
+    };
+    expect(MP.isPaused(room)).toBe(false);
+  });
+
+  it('false when only one player (waiting)', () => {
+    const room = {
+      status: 'waiting',
+      playerOrder: ['uid1'],
+      presence: { uid1: true },
+    };
+    expect(MP.isPaused(room)).toBe(false);
+  });
+});
+
+describe('timeUntilForfeit', () => {
+  const GRACE = 2 * 60 * 1000; // 2 min
+  const NOW = 1000000000000;
+
+  it('returns Infinity when not paused', () => {
+    const room = {
+      status: 'playing',
+      playerOrder: ['uid1', 'uid2'],
+      presence: { uid1: true, uid2: true },
+    };
+    expect(MP.timeUntilForfeit(room, NOW, GRACE)).toBe(Infinity);
+  });
+
+  it('counts down from disconnect time', () => {
+    const room = {
+      status: 'playing',
+      playerOrder: ['uid1', 'uid2'],
+      presence: { uid1: true, uid2: false },
+      disconnectedAt: { uid2: NOW - 30000 }, // 30s ago
+    };
+    expect(MP.timeUntilForfeit(room, NOW, GRACE)).toBe(GRACE - 30000);
+  });
+
+  it('returns 0 when grace exceeded', () => {
+    const room = {
+      status: 'playing',
+      playerOrder: ['uid1', 'uid2'],
+      presence: { uid1: true, uid2: false },
+      disconnectedAt: { uid2: NOW - (3 * 60 * 1000) },
+    };
+    expect(MP.timeUntilForfeit(room, NOW, GRACE)).toBe(0);
+  });
+});
+
+// ============================================================
+// State transitions
+// ============================================================
+
+describe('applyMatch', () => {
+  it('marks pair as matched and increments score', () => {
+    const room = {
+      board: ['a', 'a', 'b', 'b'],
+      matched: [0, 0, 0, 0],
+      players: { uid1: { name: 'Alice', score: 0 } },
+      playerOrder: ['uid1', 'uid2'],
+      currentTurn: 0,
+    };
+    const updates = MP.applyMatch(room, 'uid1', [0, 1]);
+    expect(updates.matched).toEqual([1, 1, 0, 0]);
+    expect(updates['players/uid1/score']).toBe(1);
+    expect(updates.flipped).toEqual([]);
+    expect(updates.status).toBeUndefined();
+  });
+
+  it('sets status finished when game over', () => {
+    const room = {
+      board: ['a', 'a'],
+      matched: [0, 0],
+      players: { uid1: { name: 'Alice', score: 0 } },
+      playerOrder: ['uid1', 'uid2'],
+      currentTurn: 0,
+    };
+    const updates = MP.applyMatch(room, 'uid1', [0, 1]);
+    expect(updates.status).toBe('finished');
+  });
+});
+
+describe('applyMismatch', () => {
+  it('clears flipped and advances turn', () => {
+    const room = { currentTurn: 0, playerOrder: ['uid1', 'uid2'] };
+    const updates = MP.applyMismatch(room);
+    expect(updates.flipped).toEqual([]);
+    expect(updates.currentTurn).toBe(1);
+  });
+
+  it('wraps turn back to 0', () => {
+    const room = { currentTurn: 1, playerOrder: ['uid1', 'uid2'] };
+    const updates = MP.applyMismatch(room);
+    expect(updates.currentTurn).toBe(0);
+  });
+});
+
+describe('applyForfeit', () => {
+  it('finishes game with forfeit winner and increments session score', () => {
+    const room = { sessionScores: { uid1: 1, uid2: 0 } };
+    const updates = MP.applyForfeit(room, 'uid1');
+    expect(updates.status).toBe('finished');
+    expect(updates.forfeitWinner).toBe('uid1');
+    expect(updates.sessionScores).toEqual({ uid1: 2, uid2: 0 });
+  });
+
+  it('initializes session scores if missing', () => {
+    const updates = MP.applyForfeit({}, 'uid1');
+    expect(updates.sessionScores).toEqual({ uid1: 1 });
+  });
+});
+
+describe('incrementSessionScore', () => {
+  it('increments winner', () => {
+    const room = { sessionScores: { uid1: 2, uid2: 1 } };
+    const updates = MP.incrementSessionScore(room, 'uid1');
+    expect(updates.sessionScores).toEqual({ uid1: 3, uid2: 1 });
+  });
+
+  it('does nothing for ties (null winner)', () => {
+    const room = { sessionScores: { uid1: 1, uid2: 1 } };
+    const updates = MP.incrementSessionScore(room, null);
+    expect(updates).toEqual({});
+  });
+
+  it('initializes session scores if missing', () => {
+    const updates = MP.incrementSessionScore({}, 'uid1');
+    expect(updates.sessionScores).toEqual({ uid1: 1 });
+  });
+});
+
+describe('applyResetForRematch', () => {
+  it('resets game state but preserves session scores', () => {
+    const room = {
+      players: { uid1: { name: 'Alice', score: 5 }, uid2: { name: 'Bob', score: 3 } },
+      playerOrder: ['uid1', 'uid2'],
+      sessionScores: { uid1: 2, uid2: 1 },
+    };
+    const newBoard = ['a', 'b', 'a', 'b'];
+    const updates = MP.applyResetForRematch(room, newBoard);
+    expect(updates.board).toEqual(newBoard);
+    expect(updates.matched).toEqual([0, 0, 0, 0]);
+    expect(updates.players.uid1.score).toBe(0);
+    expect(updates.players.uid2.score).toBe(0);
+    expect(updates.players.uid1.name).toBe('Alice');
+    expect(updates.status).toBe('playing');
+    expect(updates.currentTurn).toBe(0);
+    expect(updates.forfeitWinner).toBe(null);
+    expect(updates.sessionScores).toBeUndefined(); // preserved (not in updates)
+  });
+});
