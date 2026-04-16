@@ -184,6 +184,23 @@ h1 {
 #play-btn:hover { background: #d05548; }
 #play-btn:active { transform: scale(0.96); }
 
+.mp-splash-btn {
+  background: #c4944a;
+  color: #fff;
+  border: 3px solid #a87830;
+  padding: 14px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, transform 0.1s;
+  min-height: 52px;
+}
+
+.mp-splash-btn:hover { background: #d4a45a; }
+.mp-splash-btn:active { transform: scale(0.96); }
+
 /* --- Card grid --- */
 #grid {
   display: grid;

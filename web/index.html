@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Membery</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="multiplayer.css">
 </head>
 <body>
 
@@ -34,11 +35,15 @@
     <img src="cover.jpg" alt="The Original Memory — Card Matching Game" id="cover-img">
     <div class="splash-buttons">
       <button id="play-btn">Play</button>
+      <button id="play-friends-btn" class="mp-splash-btn">Play with Friends</button>
       <button id="splash-trophy-btn" class="trophy-btn" title="Leaderboard">&#127942;</button>
     </div>
   </div>
 
   <div id="grid"></div>
+
+  <!-- Multiplayer section -->
+  <div id="mp-section" class="hidden"></div>
 
   <!-- Win overlay -->
   <div id="win-overlay">
@@ -92,5 +97,6 @@
   <script src="firebase-config.js"></script>
   <script src="scores.js"></script>
   <script src="game.js"></script>
+  <script src="multiplayer.js"></script>
 </body>
 </html>
